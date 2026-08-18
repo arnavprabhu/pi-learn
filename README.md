@@ -4,6 +4,8 @@
 
 Chat history is not the learner model. Progress lives in files in this repository.
 
+![Learner snapshot in the Pi TUI, then a new mission for the potential method](visuals/tui.png)
+
 ## Prerequisites
 
 - Node.js 22 or newer

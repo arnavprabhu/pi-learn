@@ -1,3 +1,3 @@
 # Visuals
 
-Optional diagrams. Not required for V1. The tutor does not depend on this folder.
+TUI screenshots for the README. The tutor does not depend on this folder.
