@@ -45,6 +45,9 @@ The conversational tutor must not be the sole judge of free-response answers.
 The verifier returns JSON only (see `.pi/agents/verifier.md`). It does not tutor.
 
 MCQ is graded locally against the expected choice; the expected answer is redacted from the TUI renderer.
+Malformed MCQs are rejected before the question is shown or saved. The expected answer must identify one listed choice.
+
+Self-reports use `learner_record_self_report`. They have low strength and must not replace a probe for important prerequisites.
 
 ## What the tutor should do with a grade
 

@@ -44,6 +44,7 @@ export function parseMission(raw: string): Mission {
 export function loadMission(paths: ProjectPaths): Mission | null {
 	const raw = readText(paths.mission);
 	if (!raw || !raw.trim()) return null;
+	if (raw.trim() === TEMPLATE.trim()) return null;
 	return parseMission(raw);
 }
 

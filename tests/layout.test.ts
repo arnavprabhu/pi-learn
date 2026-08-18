@@ -25,9 +25,20 @@ describe("skill and extension layout", () => {
 	it("registers project-local knowledge retrieval", () => {
 		const knowledge = fs.readFileSync(path.join(repoRoot, ".pi/extensions/knowledge.ts"), "utf8");
 		const learningState = fs.readFileSync(path.join(repoRoot, ".pi/extensions/learning-state.ts"), "utf8");
+		const teachExtension = fs.readFileSync(path.join(repoRoot, ".pi/extensions/teach.ts"), "utf8");
 		const skill = fs.readFileSync(path.join(repoRoot, ".pi/skills/teach/SKILL.md"), "utf8");
 		assert.match(knowledge, /name: "knowledge_search"/);
 		assert.match(learningState, /syncKnowledge/);
-		assert.match(skill, /Check the `# Knowledge` section/);
+		assert.match(teachExtension, /await syncKnowledge\(paths\)/);
+		assert.match(skill, /Check the `# Knowledge` inventory/);
+	});
+
+	it("hardens weak-model tool use", () => {
+		const learningState = fs.readFileSync(path.join(repoRoot, ".pi/extensions/learning-state.ts"), "utf8");
+		const quiz = fs.readFileSync(path.join(repoRoot, ".pi/extensions/quiz.ts"), "utf8");
+		assert.match(learningState, /name: "learner_record_self_report"/);
+		assert.match(learningState, /tryWriteAutomaticLearningRecord/);
+		assert.doesNotMatch(learningState, /Type\.Literal\("paused"\)/);
+		assert.ok(quiz.indexOf("validateMultipleChoice(params)") < quiz.indexOf("savePendingQuiz(paths, pending)"));
 	});
 });

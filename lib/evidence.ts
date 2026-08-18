@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { appendLine, nowIso, readText, writeText } from "./fs.ts";
+import { normalizeConceptId } from "./concepts.ts";
 import { applyEvidence, recomputeConcept, refreshStatuses, strengthFor } from "./mastery.ts";
 import type { ProjectPaths } from "./paths.ts";
 import type { ConceptStore, EvidenceEvent, EvidenceType } from "./types.ts";
@@ -93,8 +94,10 @@ export function recordAndUpdate(
 		strength?: number;
 	},
 ): { event: EvidenceEvent; store: ConceptStore } {
+	const concept = normalizeConceptId(input.concept);
 	const event = appendEvidence(paths, {
 		...input,
+		concept,
 		strength: input.strength ?? strengthFor(input.type),
 	});
 	const next = applyEventToStore(store, event);
@@ -106,6 +109,7 @@ export function resetEvidence(paths: ProjectPaths, conceptIds: string[] | "all")
 		writeText(paths.evidence, "");
 		return;
 	}
-	const keep = loadEvidence(paths).filter((e) => !conceptIds.includes(e.concept));
+	const normalizedIds = conceptIds.map(normalizeConceptId);
+	const keep = loadEvidence(paths).filter((e) => !normalizedIds.includes(e.concept));
 	writeText(paths.evidence, keep.map((e) => JSON.stringify(e)).join("\n") + (keep.length ? "\n" : ""));
 }

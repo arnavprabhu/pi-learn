@@ -32,8 +32,8 @@ export function gradeMultipleChoice(input: {
 
 	let correct = answer === expected;
 	if (!correct && choices.length > 0) {
-		const expectedIndex = indexOfChoice(choices, input.expectedAnswer);
-		const answerIndex = indexOfChoice(choices, input.answer);
+		const expectedIndex = resolveChoiceIndex(choices, input.expectedAnswer);
+		const answerIndex = resolveChoiceIndex(choices, input.answer);
 		if (expectedIndex !== -1 && answerIndex !== -1) correct = expectedIndex === answerIndex;
 		const letter = answer.match(/^([a-d])\b/);
 		if (!correct && letter && expectedIndex !== -1) {
@@ -56,6 +56,37 @@ export function gradeMultipleChoice(input: {
 		recommendedAction: correct ? "advance" : "reteach",
 		dontKnow: false,
 	};
+}
+
+/** Return the selected choice for exact text, a letter, or a one-based number. */
+export function resolveChoiceIndex(choices: string[], value: string): number {
+	const normalized = normalize(value);
+	const exact = choices.findIndex((choice) => normalize(choice) === normalized);
+	if (exact !== -1) return exact;
+	if (/^[a-z]$/.test(normalized)) {
+		const index = normalized.charCodeAt(0) - 97;
+		return index < choices.length ? index : -1;
+	}
+	if (/^\d+$/.test(normalized)) {
+		const index = Number(normalized) - 1;
+		return index >= 0 && index < choices.length ? index : -1;
+	}
+	return -1;
+}
+
+export function validateMultipleChoice(input: {
+	choices?: string[];
+	expectedAnswer?: string;
+}): string | null {
+	const choices = input.choices ?? [];
+	if (choices.length < 2) return "Multiple-choice quizzes need at least two choices.";
+	if (choices.some((choice) => !choice.trim())) return "Multiple-choice choices cannot be blank.";
+	if (new Set(choices.map(normalize)).size !== choices.length) return "Multiple-choice choices must be unique.";
+	if (!input.expectedAnswer?.trim()) return "Multiple-choice quizzes need expectedAnswer.";
+	if (resolveChoiceIndex(choices, input.expectedAnswer) === -1) {
+		return "expectedAnswer must match one choice exactly, or identify it by letter or one-based number.";
+	}
+	return null;
 }
 
 export function dontKnowResult(type: EvidenceType): GradeResult {
@@ -107,11 +138,6 @@ export function extractJson(text: string): unknown {
 
 function normalize(s: string): string {
 	return s.trim().toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ");
-}
-
-function indexOfChoice(choices: string[], value: string): number {
-	const n = normalize(value);
-	return choices.findIndex((c) => normalize(c) === n);
 }
 
 function asStringArray(value: unknown): string[] {

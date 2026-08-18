@@ -4,6 +4,17 @@ import type { Concept, ConceptStore } from "./types.ts";
 import { defaultConcept } from "./types.ts";
 import type { ProjectPaths } from "./paths.ts";
 
+/** Normalize model-supplied concept references to one stable graph key. */
+export function normalizeConceptId(value: string): string {
+	const id = value
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+	if (!id) throw new Error("Concept id must contain at least one letter or number");
+	return id;
+}
+
 export function emptyStore(): ConceptStore {
 	return { version: 1, updatedAt: nowIso(), concepts: {} };
 }
@@ -28,19 +39,21 @@ export function upsertConcepts(
 ): ConceptStore {
 	const concepts = { ...store.concepts };
 	for (const item of incoming) {
-		const existing = concepts[item.id];
+		const id = normalizeConceptId(item.id);
+		const prerequisites = item.prerequisites?.map(normalizeConceptId);
+		const existing = concepts[id];
 		const base = existing ?? defaultConcept({
-			id: item.id,
-			name: item.name ?? item.id,
-			prerequisites: item.prerequisites,
+			id,
+			name: item.name ?? id,
+			prerequisites,
 			description: item.description,
 		});
-		concepts[item.id] = {
+		concepts[id] = {
 			...base,
 			...item,
-			id: item.id,
+			id,
 			name: item.name ?? base.name,
-			prerequisites: item.prerequisites ?? base.prerequisites,
+			prerequisites: prerequisites ?? base.prerequisites,
 			misconceptions: item.misconceptions ?? base.misconceptions,
 			evidence: item.evidence ?? base.evidence,
 		};
@@ -53,7 +66,7 @@ export function upsertConcepts(
 }
 
 export function getConcept(store: ConceptStore, id: string): Concept | null {
-	return store.concepts[id] ?? null;
+	return store.concepts[normalizeConceptId(id)] ?? null;
 }
 
 export function resetConcepts(
@@ -62,6 +75,6 @@ export function resetConcepts(
 ): ConceptStore {
 	if (ids === "all") return emptyStore();
 	const concepts = { ...store.concepts };
-	for (const id of ids) delete concepts[id];
+	for (const id of ids) delete concepts[normalizeConceptId(id)];
 	return { version: 1, updatedAt: nowIso(), concepts: refreshStatuses(concepts) };
 }

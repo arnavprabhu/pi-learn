@@ -1,6 +1,8 @@
 import path from "node:path";
-import { nowIso, slugify, writeText } from "./fs.ts";
+import { nowIso, readText, slugify, writeText } from "./fs.ts";
+import { loadEvidence } from "./evidence.ts";
 import { computeFrontier } from "./graph.ts";
+import { loadMission } from "./mission.ts";
 import type { ProjectPaths } from "./paths.ts";
 import type { ConceptStore, EvidenceEvent, Mission } from "./types.ts";
 
@@ -13,11 +15,38 @@ export interface LearningRecordInput {
 	topic?: string;
 }
 
+/** Refresh the compact daily record after durable evidence is written. */
+export function writeAutomaticLearningRecord(paths: ProjectPaths, store: ConceptStore): string {
+	const mission = loadMission(paths);
+	return writeLearningRecord(paths, {
+		mission,
+		store,
+		events: loadEvidence(paths),
+		topic: mission?.topic,
+	});
+}
+
+export function tryWriteAutomaticLearningRecord(
+	paths: ProjectPaths,
+	store: ConceptStore,
+): { file?: string; error?: string } {
+	try {
+		return { file: writeAutomaticLearningRecord(paths, store) };
+	} catch (error) {
+		return { error: error instanceof Error ? error.message : String(error) };
+	}
+}
+
 export function writeLearningRecord(paths: ProjectPaths, input: LearningRecordInput): string {
 	const frontier = computeFrontier(input.store.concepts);
 	const date = nowIso().slice(0, 10);
 	const topic = slugify(input.topic || input.mission?.topic || input.mission?.goal || "session");
 	const file = path.join(paths.records, `${date}-${topic}.md`);
+	const existing = readText(file);
+	const existingQuestions = readExistingBullets(existing, "Important learner questions");
+	const existingNotes = readExistingSection(existing, "Notes", "Updated:");
+	const learnerQuestions = input.learnerQuestions ?? existingQuestions;
+	const notes = input.notes === undefined ? existingNotes || "(none)" : input.notes.trim() || "(none)";
 
 	const covered = Object.values(input.store.concepts).filter((c) => c.evidenceCount > 0);
 	const demonstrated = covered.filter((c) => c.status === "mastered");
@@ -51,7 +80,7 @@ ${misconceptions.length ? misconceptions.join("\n") : "- (none recorded)"}
 
 ## Important learner questions
 
-${bullets(input.learnerQuestions ?? [])}
+${bullets(learnerQuestions)}
 
 ## Evidence collected
 
@@ -69,13 +98,28 @@ ${frontier.next ? frontier.next.name : "Review mission goal or add concepts to t
 
 ## Notes
 
-${input.notes?.trim() || "(none)"}
+${notes}
 
 Updated: ${nowIso()}
 `;
 
 	writeText(file, body);
 	return file;
+}
+
+function readExistingSection(existing: string | null, heading: string, nextHeading: string): string | null {
+	if (!existing) return null;
+	const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const escapedNext = nextHeading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const match = existing.match(new RegExp(`^## ${escapedHeading}\\s*\\n\\n([\\s\\S]*?)\\n\\n${escapedNext}`, "m"));
+	const value = match?.[1]?.trim();
+	return value && value !== "(none)" && value !== "- (none)" ? value : null;
+}
+
+function readExistingBullets(existing: string | null, heading: string): string[] {
+	const section = readExistingSection(existing, heading, "## Evidence collected");
+	if (!section) return [];
+	return section.split("\n").map((line) => line.replace(/^\s*-\s*/, "").trim()).filter(Boolean);
 }
 
 function bullets(items: string[]): string {

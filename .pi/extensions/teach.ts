@@ -5,11 +5,13 @@
 import fs from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import { compactKnowledgeText, syncKnowledge } from "../../lib/knowledge.ts";
 import { projectPaths } from "../../lib/paths.ts";
 import { resetLearner } from "../../lib/reset.ts";
 import { compactSnapshotText, loadSnapshot } from "../../lib/snapshot.ts";
+import { refreshTeachWidget } from "../../lib/widget.ts";
 
-function kickoff(topic: string, skill: string): string {
+function kickoff(topic: string, skill: string, knowledge: string): string {
 	const trimmed = topic.trim();
 	const topicLine = trimmed
 		? `Learning topic / mission: ${trimmed}`
@@ -19,6 +21,10 @@ function kickoff(topic: string, skill: string): string {
 ---
 
 The teach skill above is now in effect. ${topicLine}
+
+Knowledge was synchronized before this turn:
+
+${knowledge}
 
 Start by calling learner_snapshot. Then follow Probe → Plan → Teach → Verify → Persist.
 Do not dump a textbook chapter. Teach one frontier concept at a time.
@@ -43,7 +49,8 @@ export default function teachExtension(pi: ExtensionAPI) {
 				return;
 			}
 
-			pi.sendUserMessage(kickoff(args, skill));
+			const knowledge = await syncKnowledge(paths);
+			pi.sendUserMessage(kickoff(args, skill, compactKnowledgeText(knowledge)));
 		},
 	});
 
@@ -57,6 +64,7 @@ export default function teachExtension(pi: ExtensionAPI) {
 		handler: async (_args, ctx) => {
 			const { snapshot } = loadSnapshot(projectPaths(ctx.cwd));
 			pi.appendEntry("learner-frontier", { text: compactSnapshotText(snapshot) });
+			refreshTeachWidget(ctx);
 			ctx.ui.notify(snapshot.frontier.next ? `Next: ${snapshot.frontier.next.name}` : "No frontier yet", "info");
 		},
 	});
@@ -103,20 +111,12 @@ export default function teachExtension(pi: ExtensionAPI) {
 				}
 				resetLearner(paths, { kind: "topic", ids });
 			}
+			refreshTeachWidget(ctx);
 			ctx.ui.notify("Reset complete", "info");
 		},
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
-		try {
-			const { snapshot } = loadSnapshot(projectPaths(ctx.cwd), { recompute: false });
-			const next = snapshot.frontier.next;
-			if (!snapshot.mission && !next) return;
-			const goal = snapshot.mission?.goal ?? "no mission";
-			const line = next ? `next: ${next.id}` : "no frontier";
-			ctx.ui.setWidget("teach", [`teach  ${goal.slice(0, 60)}  ·  ${line}`]);
-		} catch {
-			// ignore missing files on first run
-		}
+		refreshTeachWidget(ctx);
 	});
 }

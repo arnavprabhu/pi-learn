@@ -8,7 +8,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { loadAgent } from "../../lib/agents.ts";
-import { loadConcepts, saveConcepts } from "../../lib/concepts.ts";
+import { loadConcepts, normalizeConceptId, saveConcepts } from "../../lib/concepts.ts";
 import { recordAndUpdate } from "../../lib/evidence.ts";
 import { nowIso } from "../../lib/fs.ts";
 import {
@@ -17,11 +17,14 @@ import {
 	gradeMultipleChoice,
 	isDontKnow,
 	parseGradeJson,
+	validateMultipleChoice,
 } from "../../lib/grade.ts";
 import { projectPaths } from "../../lib/paths.ts";
 import { clearPendingQuiz, loadPendingQuiz, savePendingQuiz } from "../../lib/pending.ts";
+import { tryWriteAutomaticLearningRecord } from "../../lib/records.ts";
 import type { EvidenceType, GradeResult, PendingQuiz, QuizType } from "../../lib/types.ts";
 import { QUIZ_TYPES } from "../../lib/types.ts";
+import { refreshTeachWidget } from "../../lib/widget.ts";
 
 const QuizTypeSchema = Type.Union(QUIZ_TYPES.map((t) => Type.Literal(t)));
 
@@ -198,8 +201,10 @@ function persistGrade(
 	});
 	saveConcepts(paths, store);
 	clearPendingQuiz(paths);
+	const record = tryWriteAutomaticLearningRecord(paths, store);
+	refreshTeachWidget(ctx);
 	const concept = store.concepts[pending.concept];
-	return { event, concept };
+	return { event, concept, record };
 }
 
 export default function quizExtension(pi: ExtensionAPI) {
@@ -213,9 +218,19 @@ export default function quizExtension(pi: ExtensionAPI) {
 		async execute(_id, params, signal, _onUpdate, ctx) {
 			const quizType = (params.type ?? "free_response") as QuizType;
 			const implemented = quizType === "multiple_choice" || quizType === "free_response";
+			if (quizType === "multiple_choice") {
+				const error = validateMultipleChoice(params);
+				if (error) {
+					return {
+						content: [{ type: "text" as const, text: `${error} Fix the quiz arguments and call quiz again.` }],
+						details: { error },
+						isError: true,
+					};
+				}
+			}
 			const pending: PendingQuiz = {
 				id: randomUUID(),
-				concept: params.concept,
+				concept: normalizeConceptId(params.concept),
 				quizType: implemented ? quizType : "free_response",
 				question: params.question,
 				choices: params.choices,
@@ -259,13 +274,14 @@ export default function quizExtension(pi: ExtensionAPI) {
 
 			try {
 				const grade = await gradePending(ctx, pending, answer, signal);
-				const { concept } = persistGrade(ctx, pending, grade);
+				const { concept, record } = persistGrade(ctx, pending, grade);
 				const payload = publicGrade(grade, {
 					concept: pending.concept,
 					mastery: concept.mastery,
 					confidence: concept.confidence,
 					status: concept.status,
 					learnerAnswer: answer,
+					record,
 				});
 				return {
 					content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
@@ -319,13 +335,14 @@ export default function quizExtension(pi: ExtensionAPI) {
 				};
 			}
 			const grade = await gradePending(ctx, pending, params.answer, signal);
-			const { concept } = persistGrade(ctx, pending, grade);
+			const { concept, record } = persistGrade(ctx, pending, grade);
 			const payload = publicGrade(grade, {
 				concept: pending.concept,
 				mastery: concept.mastery,
 				confidence: concept.confidence,
 				status: concept.status,
 				learnerAnswer: params.answer,
+				record,
 			});
 			return {
 				content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],

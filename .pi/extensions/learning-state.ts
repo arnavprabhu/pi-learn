@@ -6,14 +6,15 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { loadConcepts, saveConcepts, upsertConcepts } from "../../lib/concepts.ts";
+import { loadConcepts, normalizeConceptId, saveConcepts, upsertConcepts } from "../../lib/concepts.ts";
 import { loadEvidence, recordAndUpdate } from "../../lib/evidence.ts";
 import { compactKnowledgeText, syncKnowledge } from "../../lib/knowledge.ts";
 import { EVIDENCE_TYPES } from "../../lib/types.ts";
 import { writeMission } from "../../lib/mission.ts";
 import { projectPaths } from "../../lib/paths.ts";
-import { writeLearningRecord } from "../../lib/records.ts";
+import { tryWriteAutomaticLearningRecord, writeLearningRecord } from "../../lib/records.ts";
 import { compactSnapshotText, loadSnapshot } from "../../lib/snapshot.ts";
+import { refreshTeachWidget } from "../../lib/widget.ts";
 
 function toolText(text: string, details: unknown = {}) {
 	return {
@@ -43,7 +44,7 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 		async execute(_id, params, _signal, _onUpdate, ctx) {
 			const paths = projectPaths(ctx.cwd);
 			const [{ snapshot }, knowledge] = await Promise.all([loadSnapshot(paths, {
-				focus: params.focus,
+				focus: params.focus?.map(normalizeConceptId),
 				recompute: params.recompute,
 			}), syncKnowledge(paths)]);
 			const text = `${compactSnapshotText(snapshot)}\n\n${compactKnowledgeText(knowledge)}`;
@@ -67,16 +68,10 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 			desiredDepth: Type.Optional(Type.String({ description: "How deep to go." })),
 			constraints: Type.Optional(Type.Array(Type.String())),
 			topic: Type.Optional(Type.String({ description: "Short topic slug, e.g. closures" })),
-			status: Type.Optional(
-				Type.Union([
-					Type.Literal("active"),
-					Type.Literal("paused"),
-					Type.Literal("complete"),
-				]),
-			),
 		}),
 		async execute(_id, params, _signal, _onUpdate, ctx) {
-			const mission = writeMission(projectPaths(ctx.cwd), params);
+			const mission = writeMission(projectPaths(ctx.cwd), { ...params, status: "active" });
+			refreshTeachWidget(ctx);
 			return toolText(`Mission saved.\nGoal: ${mission.goal}\nDepth: ${mission.desiredDepth}\nStatus: ${mission.status}`, {
 				goal: mission.goal,
 			});
@@ -109,7 +104,8 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 			const paths = projectPaths(ctx.cwd);
 			const store = upsertConcepts(loadConcepts(paths), params.concepts);
 			saveConcepts(paths, store);
-			const ids = params.concepts.map((c) => c.id).join(", ");
+			refreshTeachWidget(ctx);
+			const ids = params.concepts.map((c) => normalizeConceptId(c.id)).join(", ");
 			return toolText(`Graph updated (${Object.keys(store.concepts).length} nodes). Upserted: ${ids}`, {
 				ids: Object.keys(store.concepts),
 			});
@@ -126,7 +122,7 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 		name: "learner_record_evidence",
 		label: "Record evidence",
 		description:
-			"Append a non-quiz evidence event (self-report, conversation demonstration) and update mastery. Prefer the quiz tool for assessments.",
+			"Append demonstrated non-quiz evidence from conversation or a probe and update mastery. Use learner_record_self_report for unverified learner claims. Prefer quiz for assessments.",
 		parameters: Type.Object({
 			concept: Type.String(),
 			type: Type.Union(EVIDENCE_TYPES.map((t) => Type.Literal(t))),
@@ -134,13 +130,7 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 			correct: Type.Optional(Type.Boolean()),
 			notes: Type.Optional(Type.String()),
 			misconceptions: Type.Optional(Type.Array(Type.String())),
-			source: Type.Optional(
-				Type.Union([
-					Type.Literal("self_report"),
-					Type.Literal("conversation"),
-					Type.Literal("probe"),
-				]),
-			),
+			source: Type.Optional(Type.Union([Type.Literal("conversation"), Type.Literal("probe")])),
 		}),
 		async execute(_id, params, _signal, _onUpdate, ctx) {
 			const paths = projectPaths(ctx.cwd);
@@ -154,10 +144,12 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 				notes: params.notes,
 			});
 			saveConcepts(paths, store);
-			const concept = store.concepts[params.concept];
+			const record = tryWriteAutomaticLearningRecord(paths, store);
+			refreshTeachWidget(ctx);
+			const concept = store.concepts[event.concept];
 			return toolText(
-				`Evidence recorded for ${params.concept}. mastery=${concept.mastery.toFixed(2)} conf=${concept.confidence.toFixed(2)} status=${concept.status}`,
-				{ concept: concept.id, mastery: concept.mastery, status: concept.status, eventId: event.id },
+				`Evidence recorded for ${concept.id}. mastery=${concept.mastery.toFixed(2)} conf=${concept.confidence.toFixed(2)} status=${concept.status}${record.error ? `\nLearning record warning: ${record.error}` : ""}`,
+				{ concept: concept.id, mastery: concept.mastery, status: concept.status, eventId: event.id, record },
 			);
 		},
 		renderCall(args, theme) {
@@ -165,6 +157,51 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 				theme.fg("toolTitle", theme.bold("evidence ")) +
 					theme.fg("accent", String(args.concept ?? "")) +
 					theme.fg("dim", ` ${args.type ?? ""}`),
+				0,
+				0,
+			);
+		},
+	});
+
+	pi.registerTool({
+		name: "learner_record_self_report",
+		label: "Record self-report",
+		description:
+			"Record an unverified learner claim about familiarity. This is weak context, not demonstrated mastery. Verify important prerequisites with quiz.",
+		parameters: Type.Object({
+			concept: Type.String({ description: "Concept id" }),
+			familiarity: Type.Union([
+				Type.Literal("none"),
+				Type.Literal("some"),
+				Type.Literal("comfortable"),
+			]),
+			notes: Type.Optional(Type.String()),
+		}),
+		async execute(_id, params, _signal, _onUpdate, ctx) {
+			const paths = projectPaths(ctx.cwd);
+			const scores = { none: 0, some: 0.45, comfortable: 0.7 } as const;
+			const { event, store } = recordAndUpdate(paths, loadConcepts(paths), {
+				concept: params.concept,
+				type: "recognition",
+				score: scores[params.familiarity],
+				correct: null,
+				source: "self_report",
+				strength: 0.1,
+				notes: [params.familiarity, params.notes].filter(Boolean).join(": "),
+			});
+			saveConcepts(paths, store);
+			const record = tryWriteAutomaticLearningRecord(paths, store);
+			refreshTeachWidget(ctx);
+			return toolText(`Self-report recorded for ${event.concept}. Verify it before relying on it.${record.error ? `\nLearning record warning: ${record.error}` : ""}`, {
+				concept: event.concept,
+				eventId: event.id,
+				familiarity: params.familiarity,
+				record,
+			});
+		},
+		renderCall(args, theme) {
+			return new Text(
+				theme.fg("toolTitle", theme.bold("self_report ")) + theme.fg("accent", String(args.concept ?? "")),
 				0,
 				0,
 			);

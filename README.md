@@ -39,6 +39,8 @@ You can also ask Pi directly, for example: `Teach me how Riemann sums approximat
 
 Put readings, notes, code, or textbooks in `knowledge/`, then start a lesson normally. Pi indexes changed files, searches relevant passages, and keeps the local cache across sessions. An empty folder changes nothing.
 
+`/teach` refreshes the index before the tutor starts, so source discovery does not depend on the model calling a tool correctly.
+
 PDF, Markdown, text, HTML, JSON, CSV, and common source-code files are supported. PDF extraction is local and does not use OCR. Files are tracked by Git by default. Uncomment the knowledge rules in `.gitignore` if the material should stay local.
 
 Useful commands:
@@ -71,6 +73,8 @@ Learner state lives in this repository:
 - `.pi/knowledge-cache/` stores the generated local index and extracted text.
 
 Project files under `.pi/` provide the tutoring skills, extensions, agents, and session directory. The project does not install anything into `~/.pi/` or use global Pi sessions. Pi itself may update its trust file if you approve the project. The researcher uses `pi-subagents` and `pi-web-access`; the tutor does not browse directly.
+
+Quiz and evidence tools refresh the daily learning record automatically. The tutor can add richer notes at the end of a useful segment.
 
 ## Tests
 
