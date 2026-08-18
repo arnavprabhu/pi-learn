@@ -30,6 +30,10 @@ pi --approve
 
 `--approve` trusts this project so Pi can load its local skills, extensions, agents, and settings. Pi may prompt for this approval interactively instead.
 
+## Models
+
+pi-learn works with every model provider Pi supports. Sign in through Pi, or run locally with [Ollama](https://docs.ollama.com/integrations/pi). A 12B-class model or larger is enough to get started. With Ollama, that path is free and stays on your machine.
+
 ## Everyday use
 
 ```text
