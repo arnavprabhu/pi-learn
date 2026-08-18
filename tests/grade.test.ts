@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { dontKnowResult, gradeMultipleChoice, isDontKnow, parseGradeJson } from "../lib/grade.ts";
+import {
+	coerceEvidenceType,
+	dontKnowResult,
+	evidenceTypeForQuiz,
+	gradeMultipleChoice,
+	isDontKnow,
+	parseGradeJson,
+} from "../lib/grade.ts";
 
 describe("grading", () => {
 	it("accepts I don't know without treating it as a misconception", () => {
@@ -38,6 +45,13 @@ describe("grading", () => {
 		});
 		assert.equal(grade.correct, false);
 		assert.equal(grade.score, 0);
+	});
+
+	it("coerces Bloom labels and ignores quiz types used as evidenceType", () => {
+		assert.equal(coerceEvidenceType("explanation"), "explanation");
+		assert.equal(coerceEvidenceType(" Recall "), "recall");
+		assert.equal(coerceEvidenceType("free_response"), undefined);
+		assert.equal(coerceEvidenceType("multiple_choice"), undefined);
 	});
 
 	it("parses verifier JSON from a fenced blob", () => {

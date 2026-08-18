@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { afterEach, describe, it } from "node:test";
 import { loadConcepts, normalizeConceptId, saveConcepts, upsertConcepts } from "../lib/concepts.ts";
 import { loadEvidence, recordAndUpdate } from "../lib/evidence.ts";
-import { validateMultipleChoice } from "../lib/grade.ts";
+import { evidenceTypeForQuiz, validateMultipleChoice } from "../lib/grade.ts";
 import { loadMission, writeMission } from "../lib/mission.ts";
 import { projectPaths } from "../lib/paths.ts";
 import { writeAutomaticLearningRecord, writeLearningRecord } from "../lib/records.ts";
@@ -24,6 +24,13 @@ function project() {
 }
 
 describe("weak-model robustness", () => {
+	it("does not reject a quiz because evidenceType was a quiz type", () => {
+		assert.equal(evidenceTypeForQuiz("free_response", "free_response"), "recall");
+		assert.equal(evidenceTypeForQuiz("multiple_choice", "free_response"), "recognition");
+		assert.equal(evidenceTypeForQuiz("free_response", "explanation"), "explanation");
+		assert.equal(evidenceTypeForQuiz("free_response", "short answer"), "recall");
+	});
+
 	it("rejects malformed multiple-choice keys", () => {
 		assert.match(
 			validateMultipleChoice({ choices: ["7", "10", "6"], expectedAnswer: "answer will be checked later" }) ?? "",

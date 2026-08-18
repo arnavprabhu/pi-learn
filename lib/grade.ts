@@ -8,8 +8,19 @@ export function isDontKnow(answer: string): boolean {
 	return DONT_KNOW.test(answer.trim());
 }
 
-export function evidenceTypeForQuiz(quizType: QuizType, requested?: EvidenceType): EvidenceType {
-	if (requested && (EVIDENCE_TYPES as readonly string[]).includes(requested)) return requested;
+/** Bloom evidence labels only. Quiz formats such as free_response are not evidence types. */
+export function coerceEvidenceType(value: unknown): EvidenceType | undefined {
+	if (typeof value !== "string") return undefined;
+	const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+	if ((EVIDENCE_TYPES as readonly string[]).includes(normalized)) {
+		return normalized as EvidenceType;
+	}
+	return undefined;
+}
+
+export function evidenceTypeForQuiz(quizType: QuizType, requested?: unknown): EvidenceType {
+	const coerced = coerceEvidenceType(requested);
+	if (coerced) return coerced;
 	if (quizType === "multiple_choice" || quizType === "multi_select" || quizType === "matching") {
 		return "recognition";
 	}

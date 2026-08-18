@@ -1,6 +1,8 @@
 # pi-learn
 
-`pi-learn` is a project-local adaptive tutoring harness for Pi. It builds a small learning plan, teaches one concept at a time, checks demonstrated understanding, and records evidence for the next session.
+`pi-learn` is a project-local adaptive tutor for Pi. It builds a small learning plan, teaches one concept at a time, checks understanding with a quiz, and saves evidence so the next session can continue.
+
+Chat history is not the learner model. Progress lives in files in this repository.
 
 ## Prerequisites
 
@@ -26,32 +28,63 @@ pi --approve
 
 `--approve` trusts this project so Pi can load its local skills, extensions, agents, and settings. Pi may prompt for this approval interactively instead.
 
-## Use it
+## Everyday use
 
 ```text
 /teach Riemann sums
 /frontier
 ```
 
-You can also ask Pi directly, for example: `Teach me how Riemann sums approximate area.`
+`/teach` with no topic resumes the current mission. You can also ask in plain language: `Teach me how Riemann sums approximate area.`
 
-### Add your own sources
+`/frontier` prints the next concept from saved files, not from chat. When a mission is active, the footer shows the goal and the next concept id.
 
-Put readings, notes, code, or textbooks in `knowledge/`, then start a lesson normally. Pi indexes changed files, searches relevant passages, and keeps the local cache across sessions. An empty folder changes nothing.
+If `/teach` asks you to wait, let the current turn finish first.
 
-`/teach` refreshes the index before the tutor starts, so source discovery does not depend on the model calling a tool correctly.
+### Quizzes
 
-PDF, Markdown, text, HTML, JSON, CSV, and common source-code files are supported. PDF extraction is local and does not use OCR. Files are tracked by Git by default. Uncomment the knowledge rules in `.gitignore` if the material should stay local.
+Checks appear as a quiz overlay, not as “does that make sense?” Multiple choice is a list; free response is a short editor. **I don't know** is always an option and is better than guessing. The answer key is never shown in the UI.
 
-Useful commands:
+### Your sources
 
-- `/teach [topic]` starts or resumes a lesson.
-- `/frontier` shows the next concept based on saved state.
-- `/teach-reset topic <id>` resets selected topics.
-- `/teach-reset mission` resets the mission template.
-- `/teach-reset all` resets learner state after confirmation.
+Put readings, notes, code, or textbooks in `knowledge/`, then `/teach` again. Pi indexes changed files, searches relevant passages, and keeps a local cache. An empty folder is fine.
 
-The equivalent CLI reset commands are:
+PDF, Markdown, text, HTML, JSON, CSV, and common source-code files are supported. PDF extraction is local and does not use OCR. `knowledge/README.md` is a guide for you and is not indexed as a source.
+
+Files in `knowledge/` are tracked by Git by default. Uncomment the knowledge rules in `.gitignore` if the material should stay local.
+
+## How it works
+
+```text
+Probe → Plan → Teach → Verify → Persist
+```
+
+The tutor finds the nearest unmastered concept (the frontier), teaches that one step, then quizzes. “I get it” is not treated as evidence. A later session reads the same files and continues there.
+
+## Where progress lives
+
+| File | Role |
+|------|------|
+| `MISSION.md` | Current goal and depth cap |
+| `learner/evidence.jsonl` | Canonical evidence log |
+| `learner/concepts.json` | Derived mastery cache |
+| `learning-records/` | Compact daily notes |
+| `knowledge/` | Your source material |
+| `.pi/knowledge-cache/` | Generated local index |
+
+Optional steering: `learner/profile.md` and `learner/preferences.md`. The tutor also writes `MISSION.md` when a topic starts.
+
+## Reset
+
+Resets are never automatic. They ask for confirmation and keep `knowledge/`, its cache, and learning records.
+
+```text
+/teach-reset topic <id>
+/teach-reset mission
+/teach-reset all
+```
+
+CLI equivalents:
 
 ```bash
 npm run reset -- --topic riemann-sums
@@ -59,22 +92,9 @@ npm run reset -- --mission
 npm run reset -- --all --yes
 ```
 
-Resets keep `knowledge/`, its local cache, and learning records.
+## Isolation
 
-## Persistence and isolation
-
-Learner state lives in this repository:
-
-- `learner/evidence.jsonl` is the evidence log.
-- `learner/concepts.json` is the derived mastery cache.
-- `learning-records/` stores compact session records.
-- `MISSION.md` defines the current learning goal and depth cap.
-- `knowledge/` stores source material used across sessions and clones.
-- `.pi/knowledge-cache/` stores the generated local index and extracted text.
-
-Project files under `.pi/` provide the tutoring skills, extensions, agents, and session directory. The project does not install anything into `~/.pi/` or use global Pi sessions. Pi itself may update its trust file if you approve the project. The researcher uses `pi-subagents` and `pi-web-access`; the tutor does not browse directly.
-
-Quiz and evidence tools refresh the daily learning record automatically. The tutor can add richer notes at the end of a useful segment.
+Skills, extensions, agents, sessions, and learner state live in this repository. The project does not install anything into `~/.pi/` or use global Pi sessions. Pi itself may update its trust file if you approve the project. The researcher uses `pi-subagents` and `pi-web-access`; the tutor does not browse directly.
 
 ## Tests
 

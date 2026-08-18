@@ -1,8 +1,8 @@
 # Resources
 
-Put local readings, notes, and textbooks in `knowledge/`. The tutor indexes them automatically and checks them before using web research.
+Put local readings, notes, and textbooks in `knowledge/`. The tutor indexes them on `/teach` and checks them before using web research.
 
-Use this file only for external references that should not be copied into the repository. The tutor should prefer learner-provided sources, then high-quality public references.
+Use this file only for external references that should not be copied into the repository. Skip it when `knowledge/` already covers the mission.
 
 Do not treat this file as a RAG index. Point the researcher at specific URLs or books when known.
 

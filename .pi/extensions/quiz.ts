@@ -28,14 +28,6 @@ import { refreshTeachWidget } from "../../lib/widget.ts";
 
 const QuizTypeSchema = Type.Union(QUIZ_TYPES.map((t) => Type.Literal(t)));
 
-const EvidenceTypeSchema = Type.Union([
-	Type.Literal("recognition"),
-	Type.Literal("recall"),
-	Type.Literal("explanation"),
-	Type.Literal("application"),
-	Type.Literal("transfer"),
-]);
-
 const QuizParams = Type.Object({
 	concept: Type.String({ description: "Concept id being tested" }),
 	type: QuizTypeSchema,
@@ -49,7 +41,14 @@ const QuizParams = Type.Object({
 	),
 	rubric: Type.Optional(Type.String()),
 	difficulty: Type.Optional(Type.Number({ description: "0–1, informational" })),
-	evidenceType: Type.Optional(EvidenceTypeSchema),
+	// String, not an enum: weak models confuse this with quiz `type` (e.g. free_response).
+	// Invalid values are coerced via evidenceTypeForQuiz rather than failing the whole call.
+	evidenceType: Type.Optional(
+		Type.String({
+			description:
+				"Optional Bloom evidence: recognition, recall, explanation, application, or transfer. Inferred from type if omitted or invalid. Do not pass a quiz type here.",
+		}),
+	),
 });
 
 function publicGrade(grade: GradeResult, extra: Record<string, unknown> = {}) {
