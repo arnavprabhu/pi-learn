@@ -1,0 +1,10 @@
+{
+  "name": "pi-learn",
+  "private": true,
+  "type": "module",
+  "description": "Project-local adaptive learning for Pi",
+  "scripts": {
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "reset": "node scripts/reset.mjs"
+  }
+}

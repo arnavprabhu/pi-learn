@@ -1,0 +1,7 @@
+node_modules/
+.pi/sessions/
+.pi/subagent-sessions/
+.pi/scratch/research.md
+.pi/npm/
+.DS_Store
+learner/pending-quiz.json
