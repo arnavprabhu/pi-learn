@@ -52,7 +52,7 @@ When local knowledge is available, match its terminology, scope, and notation wh
 ### Verify
 
 Call `quiz` with `expectedAnswer` / `expectedUnderstanding` / `rubric`.
-`type` is the item format (`multiple_choice` or `free_response`). Optional `evidenceType` is Bloom-style (`recognition`, `recall`, `explanation`, `application`, `transfer`) and is inferred if omitted. Do not pass a quiz type as `evidenceType`.
+`type` is the item format (`multiple_choice` or `free_response`). Always set it. Optional `evidenceType` is Bloom-style (`recognition`, `recall`, `explanation`, `application`, `transfer`) and is inferred if omitted. Do not pass a quiz type as `evidenceType`, and do not omit `type` in favor of `evidenceType`.
 For multiple choice, `expectedAnswer` must match one choice or identify it by letter or number. The tutor model creates and can see this key. Never repeat it in chat. Tool renderers and results do not expose it.
 Do **not** tell the learner whether they are right until `quiz` (or `grade_response`) returns.
 

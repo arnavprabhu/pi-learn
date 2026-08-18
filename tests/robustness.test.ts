@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { afterEach, describe, it } from "node:test";
 import { loadConcepts, normalizeConceptId, saveConcepts, upsertConcepts } from "../lib/concepts.ts";
 import { loadEvidence, recordAndUpdate } from "../lib/evidence.ts";
-import { evidenceTypeForQuiz, validateMultipleChoice } from "../lib/grade.ts";
+import { evidenceTypeForQuiz, resolveQuizType, validateMultipleChoice } from "../lib/grade.ts";
 import { loadMission, writeMission } from "../lib/mission.ts";
 import { projectPaths } from "../lib/paths.ts";
 import { writeAutomaticLearningRecord, writeLearningRecord } from "../lib/records.ts";
@@ -29,6 +29,20 @@ describe("weak-model robustness", () => {
 		assert.equal(evidenceTypeForQuiz("multiple_choice", "free_response"), "recognition");
 		assert.equal(evidenceTypeForQuiz("free_response", "explanation"), "explanation");
 		assert.equal(evidenceTypeForQuiz("free_response", "short answer"), "recall");
+	});
+
+	it("recovers quiz type when the model omits type and puts free_response in evidenceType", () => {
+		assert.equal(
+			resolveQuizType({
+				concept: "place-value",
+				question: "Why does 23 have 2 tens?",
+				evidenceType: "free_response",
+			}),
+			"free_response",
+		);
+		assert.equal(resolveQuizType({ type: "multiple_choice", evidenceType: "free_response" }), "multiple_choice");
+		assert.equal(resolveQuizType({ evidenceType: "explanation", choices: ["2 tens", "2 ones"] }), "multiple_choice");
+		assert.equal(resolveQuizType({ evidenceType: "explanation" }), "free_response");
 	});
 
 	it("rejects malformed multiple-choice keys", () => {

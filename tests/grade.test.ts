@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
 	coerceEvidenceType,
+	coerceQuizType,
 	dontKnowResult,
 	evidenceTypeForQuiz,
 	gradeMultipleChoice,
@@ -52,6 +53,9 @@ describe("grading", () => {
 		assert.equal(coerceEvidenceType(" Recall "), "recall");
 		assert.equal(coerceEvidenceType("free_response"), undefined);
 		assert.equal(coerceEvidenceType("multiple_choice"), undefined);
+		assert.equal(coerceQuizType("free_response"), "free_response");
+		assert.equal(coerceQuizType(" Multiple Choice "), "multiple_choice");
+		assert.equal(coerceQuizType("recall"), undefined);
 	});
 
 	it("parses verifier JSON from a fenced blob", () => {

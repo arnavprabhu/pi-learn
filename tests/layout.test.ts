@@ -40,6 +40,7 @@ describe("skill and extension layout", () => {
 		assert.match(learningState, /tryWriteAutomaticLearningRecord/);
 		assert.doesNotMatch(learningState, /Type\.Literal\("paused"\)/);
 		assert.ok(quiz.indexOf("validateMultipleChoice(params)") < quiz.indexOf("savePendingQuiz(paths, pending)"));
+		assert.match(quiz, /type: Type\.Optional\(QuizTypeSchema\)/);
 		assert.match(quiz, /evidenceType: Type\.Optional\(\s*Type\.String/);
 		assert.doesNotMatch(quiz, /Type\.Literal\("recognition"\)/);
 	});

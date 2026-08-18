@@ -1,5 +1,5 @@
 import type { EvidenceType, GradeResult, QuizType, RecommendedAction } from "./types.ts";
-import { EVIDENCE_TYPES } from "./types.ts";
+import { EVIDENCE_TYPES, QUIZ_TYPES } from "./types.ts";
 import { clamp01, strengthFor } from "./mastery.ts";
 
 const DONT_KNOW = /^(i\s*(don't|do not|dont)\s*know|idk|unsure|no idea|\?+)\s*$/i;
@@ -8,14 +8,42 @@ export function isDontKnow(answer: string): boolean {
 	return DONT_KNOW.test(answer.trim());
 }
 
+function normalizeLabel(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	return value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
 /** Bloom evidence labels only. Quiz formats such as free_response are not evidence types. */
 export function coerceEvidenceType(value: unknown): EvidenceType | undefined {
-	if (typeof value !== "string") return undefined;
-	const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
-	if ((EVIDENCE_TYPES as readonly string[]).includes(normalized)) {
+	const normalized = normalizeLabel(value);
+	if (normalized && (EVIDENCE_TYPES as readonly string[]).includes(normalized)) {
 		return normalized as EvidenceType;
 	}
 	return undefined;
+}
+
+export function coerceQuizType(value: unknown): QuizType | undefined {
+	const normalized = normalizeLabel(value);
+	if (normalized && (QUIZ_TYPES as readonly string[]).includes(normalized)) {
+		return normalized as QuizType;
+	}
+	return undefined;
+}
+
+/** Prefer `type`; if omitted, recover a quiz format mistakenly sent as evidenceType. */
+export function resolveQuizType(input: {
+	type?: unknown;
+	evidenceType?: unknown;
+	choices?: unknown;
+}): QuizType {
+	const fromType = coerceQuizType(input.type);
+	if (fromType) return fromType;
+	const misplaced = coerceQuizType(input.evidenceType);
+	if (misplaced) return misplaced;
+	if (Array.isArray(input.choices) && input.choices.filter((c) => typeof c === "string" && c.trim()).length >= 2) {
+		return "multiple_choice";
+	}
+	return "free_response";
 }
 
 export function evidenceTypeForQuiz(quizType: QuizType, requested?: unknown): EvidenceType {

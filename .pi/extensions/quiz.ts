@@ -17,12 +17,13 @@ import {
 	gradeMultipleChoice,
 	isDontKnow,
 	parseGradeJson,
+	resolveQuizType,
 	validateMultipleChoice,
 } from "../../lib/grade.ts";
 import { projectPaths } from "../../lib/paths.ts";
 import { clearPendingQuiz, loadPendingQuiz, savePendingQuiz } from "../../lib/pending.ts";
 import { tryWriteAutomaticLearningRecord } from "../../lib/records.ts";
-import type { EvidenceType, GradeResult, PendingQuiz, QuizType } from "../../lib/types.ts";
+import type { EvidenceType, GradeResult, PendingQuiz } from "../../lib/types.ts";
 import { QUIZ_TYPES } from "../../lib/types.ts";
 import { refreshTeachWidget } from "../../lib/widget.ts";
 
@@ -30,7 +31,9 @@ const QuizTypeSchema = Type.Union(QUIZ_TYPES.map((t) => Type.Literal(t)));
 
 const QuizParams = Type.Object({
 	concept: Type.String({ description: "Concept id being tested" }),
-	type: QuizTypeSchema,
+	// Optional: execute already defaults missing type. Weak models often put the
+	// format in evidenceType instead (e.g. evidenceType: "free_response").
+	type: Type.Optional(QuizTypeSchema),
 	question: Type.String(),
 	choices: Type.Optional(Type.Array(Type.String(), { description: "For multiple_choice" })),
 	expectedAnswer: Type.Optional(
@@ -215,7 +218,7 @@ export default function quizExtension(pi: ExtensionAPI) {
 		parameters: QuizParams,
 		executionMode: "sequential",
 		async execute(_id, params, signal, _onUpdate, ctx) {
-			const quizType = (params.type ?? "free_response") as QuizType;
+			const quizType = resolveQuizType(params);
 			const implemented = quizType === "multiple_choice" || quizType === "free_response";
 			if (quizType === "multiple_choice") {
 				const error = validateMultipleChoice(params);
