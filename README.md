@@ -18,7 +18,8 @@ npm install -g @earendil-works/pi-coding-agent
 pi install npm:pi-subagents
 pi install npm:pi-web-access
 
-cd /path/to/pi-learn
+git clone https://github.com/arnavprabhu/pi-learn.git
+cd pi-learn
 pi --approve
 ```
 
