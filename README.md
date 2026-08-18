@@ -28,11 +28,11 @@ pi --approve
 ## Use it
 
 ```text
-/teach closures
+/teach Riemann sums
 /frontier
 ```
 
-You can also ask Pi directly, for example: `Teach me closures in programming languages.`
+You can also ask Pi directly, for example: `Teach me how Riemann sums approximate area.`
 
 Useful commands:
 
@@ -45,7 +45,7 @@ Useful commands:
 The equivalent CLI reset commands are:
 
 ```bash
-npm run reset -- --topic closures,lexical-scope
+npm run reset -- --topic riemann-sums
 npm run reset -- --mission
 npm run reset -- --all --yes
 ```
