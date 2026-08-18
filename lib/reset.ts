@@ -14,7 +14,7 @@ export type ResetTarget = { kind: "topic"; ids: string[] } | { kind: "mission" }
  * Topic reset removes those concepts and their evidence.
  * Mission reset restores MISSION.md to the template (learner graph kept).
  * All reset clears concepts, evidence, pending quiz, and mission template.
- * Learning records are never deleted here.
+ * Learning records, knowledge sources, and the knowledge cache are never deleted here.
  */
 export function resetLearner(paths: ProjectPaths, target: ResetTarget): string[] {
 	const changed: string[] = [];

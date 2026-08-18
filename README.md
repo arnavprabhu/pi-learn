@@ -20,6 +20,7 @@ pi install npm:pi-web-access
 
 git clone https://github.com/arnavprabhu/pi-learn.git
 cd pi-learn
+npm install
 pi --approve
 ```
 
@@ -33,6 +34,12 @@ pi --approve
 ```
 
 You can also ask Pi directly, for example: `Teach me how Riemann sums approximate area.`
+
+### Add your own sources
+
+Put readings, notes, code, or textbooks in `knowledge/`, then start a lesson normally. Pi indexes changed files, searches relevant passages, and keeps the local cache across sessions. An empty folder changes nothing.
+
+PDF, Markdown, text, HTML, JSON, CSV, and common source-code files are supported. PDF extraction is local and does not use OCR. Files are tracked by Git by default. Uncomment the knowledge rules in `.gitignore` if the material should stay local.
 
 Useful commands:
 
@@ -50,6 +57,8 @@ npm run reset -- --mission
 npm run reset -- --all --yes
 ```
 
+Resets keep `knowledge/`, its local cache, and learning records.
+
 ## Persistence and isolation
 
 Learner state lives in this repository:
@@ -58,6 +67,8 @@ Learner state lives in this repository:
 - `learner/concepts.json` is the derived mastery cache.
 - `learning-records/` stores compact session records.
 - `MISSION.md` defines the current learning goal and depth cap.
+- `knowledge/` stores source material used across sessions and clones.
+- `.pi/knowledge-cache/` stores the generated local index and extracted text.
 
 Project files under `.pi/` provide the tutoring skills, extensions, agents, and session directory. The project does not install anything into `~/.pi/` or use global Pi sessions. Pi itself may update its trust file if you approve the project. The researcher uses `pi-subagents` and `pi-web-access`; the tutor does not browse directly.
 
@@ -73,6 +84,7 @@ Tests use Node's built-in test runner and TypeScript's native type stripping.
 
 ```text
 .pi/                 project-local Pi configuration and tutoring logic
+knowledge/           learner-provided source material
 lib/                 inspectable mastery, graph, grading, and persistence code
 learner/             saved learner state
 learning-records/    session memory

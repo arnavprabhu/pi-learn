@@ -28,7 +28,7 @@ if (values.all) {
 		console.error("Refusing --all without --yes");
 		process.exit(1);
 	}
-	console.log("Reset all learner data (records kept):", resetLearner(paths, { kind: "all" }));
+	console.log("Reset all learner data (records and knowledge kept):", resetLearner(paths, { kind: "all" }));
 } else if (values.mission) {
 	console.log("Reset mission template:", resetLearner(paths, { kind: "mission" }));
 } else if (values.topic) {

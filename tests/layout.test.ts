@@ -21,4 +21,13 @@ describe("skill and extension layout", () => {
 		assert.match(quiz, /expectedAnswer/);
 		assert.doesNotMatch(quiz, /renderCall[\s\S]*expectedAnswer/);
 	});
+
+	it("registers project-local knowledge retrieval", () => {
+		const knowledge = fs.readFileSync(path.join(repoRoot, ".pi/extensions/knowledge.ts"), "utf8");
+		const learningState = fs.readFileSync(path.join(repoRoot, ".pi/extensions/learning-state.ts"), "utf8");
+		const skill = fs.readFileSync(path.join(repoRoot, ".pi/skills/teach/SKILL.md"), "utf8");
+		assert.match(knowledge, /name: "knowledge_search"/);
+		assert.match(learningState, /syncKnowledge/);
+		assert.match(skill, /Check the `# Knowledge` section/);
+	});
 });

@@ -60,6 +60,8 @@ describe("project isolation", () => {
 		assert.ok(paths.concepts.startsWith(repoRoot));
 		assert.ok(paths.evidence.startsWith(repoRoot));
 		assert.ok(paths.agents.startsWith(repoRoot));
+		assert.ok(paths.knowledge.startsWith(repoRoot));
+		assert.ok(paths.knowledgeCache.startsWith(repoRoot));
 		assert.doesNotMatch(paths.concepts, /\/\.pi\/agent\//);
 		const researcher = loadAgent(paths, "researcher");
 		assert.equal(researcher.name, "researcher");

@@ -12,6 +12,7 @@ export function makeTempProject(): string {
 	fs.mkdirSync(paths.learner, { recursive: true });
 	fs.mkdirSync(paths.records, { recursive: true });
 	fs.mkdirSync(paths.agents, { recursive: true });
+	fs.mkdirSync(paths.knowledge, { recursive: true });
 	saveConcepts(paths, emptyStore());
 	writeText(paths.evidence, "");
 	writeText(paths.mission, missionTemplate());

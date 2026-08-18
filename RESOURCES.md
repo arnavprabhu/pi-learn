@@ -1,6 +1,8 @@
 # Resources
 
-The tutor should prefer sources the learner already has, then high-quality public references.
+Put local readings, notes, and textbooks in `knowledge/`. The tutor indexes them automatically and checks them before using web research.
+
+Use this file only for external references that should not be copied into the repository. The tutor should prefer learner-provided sources, then high-quality public references.
 
 Do not treat this file as a RAG index. Point the researcher at specific URLs or books when known.
 

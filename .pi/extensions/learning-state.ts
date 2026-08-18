@@ -8,6 +8,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { loadConcepts, saveConcepts, upsertConcepts } from "../../lib/concepts.ts";
 import { loadEvidence, recordAndUpdate } from "../../lib/evidence.ts";
+import { compactKnowledgeText, syncKnowledge } from "../../lib/knowledge.ts";
 import { EVIDENCE_TYPES } from "../../lib/types.ts";
 import { writeMission } from "../../lib/mission.ts";
 import { projectPaths } from "../../lib/paths.ts";
@@ -26,7 +27,7 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 		name: "learner_snapshot",
 		label: "Learner snapshot",
 		description:
-			"Load compact persistent learner state for this project: mission, concept graph slice, frontier, recent evidence. Call this before teaching. Does not include full history.",
+			"Load compact persistent learner state and the knowledge/ source inventory for this project. Call this before teaching. Does not include full history or full source text.",
 		parameters: Type.Object({
 			focus: Type.Optional(
 				Type.Array(Type.String(), {
@@ -41,14 +42,15 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 		}),
 		async execute(_id, params, _signal, _onUpdate, ctx) {
 			const paths = projectPaths(ctx.cwd);
-			const { snapshot } = loadSnapshot(paths, {
+			const [{ snapshot }, knowledge] = await Promise.all([loadSnapshot(paths, {
 				focus: params.focus,
 				recompute: params.recompute,
-			});
-			const text = compactSnapshotText(snapshot);
+			}), syncKnowledge(paths)]);
+			const text = `${compactSnapshotText(snapshot)}\n\n${compactKnowledgeText(knowledge)}`;
 			return toolText(text, {
 				next: snapshot.frontier.next?.id ?? null,
 				conceptCount: snapshot.concepts.length,
+				knowledgeCount: knowledge.documents.filter((doc) => doc.status === "ready").length,
 			});
 		},
 		renderCall(_args, theme) {

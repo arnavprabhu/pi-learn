@@ -2,6 +2,11 @@ node_modules/
 .pi/sessions/
 .pi/subagent-sessions/
 .pi/scratch/research.md
+.pi/knowledge-cache/
 .pi/npm/
 .DS_Store
 learner/pending-quiz.json
+
+# Knowledge sources are tracked by default. Uncomment both lines to keep them local.
+# knowledge/*
+# !knowledge/README.md

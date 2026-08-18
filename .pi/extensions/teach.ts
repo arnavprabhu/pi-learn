@@ -73,7 +73,7 @@ export default function teachExtension(pi: ExtensionAPI) {
 			const parts = trimmed.split(/\s+/);
 			const kind = parts[0];
 			let summary = "";
-			if (kind === "all") summary = "Delete ALL concepts, evidence, pending quiz, and reset MISSION.md. Learning records are kept.";
+			if (kind === "all") summary = "Delete ALL concepts, evidence, pending quiz, and reset MISSION.md. Learning records and knowledge sources are kept.";
 			else if (kind === "mission") summary = "Reset MISSION.md to the template. Graph and evidence stay.";
 			else if (kind === "topic") summary = `Remove concepts and evidence for: ${parts.slice(1).join(" ")}`;
 			else {
