@@ -3,7 +3,7 @@ name: teach
 description: >-
   Adaptive project-local tutor. Use when the user wants to learn a topic, says
   /teach, or asks to be taught, quizzed, tutored, or to continue a learning
-  mission. Follows Probe → Plan → Teach → Verify → Update learner state.
+  mission. Follows Review → Probe → Plan → Teach → Verify → Update learner state.
   Teach at the knowledge frontier; do not dump textbook chapters.
 ---
 
@@ -19,15 +19,18 @@ Do **not** paste those files into the chat. Follow them.
 ## First actions every session
 
 1. `/teach` synchronizes `knowledge/` before your turn and includes its inventory in the kickoff. Call `learner_snapshot` before teaching to load the rest of the persistent state. Do not ask the learner to recap prior knowledge that is already in state.
-2. Check the `# Knowledge` inventory. If it lists ready sources, call `knowledge_search` for the requested topic or current mission before planning. If it lists none, continue normally.
-3. If there is no mission, or the user named a new topic, call `learner_set_mission`.
-4. If the concept graph is empty or does not cover this topic, use relevant knowledge excerpts first, then delegate research (see below) only for missing facts or structure. Draft a **small** prerequisite DAG aimed at the mission (not the entire field). Then `learner_update_graph`.
-5. Identify the frontier (`frontier.next`). Teach **that** concept, not the title of the mission, unless they coincide.
+2. **Reviews first.** If the snapshot lists `Due for review`, quiz up to 3 of those concepts (most forgotten first) before any new material. Use recall or application items, preferably a script-graded format, not recognition. One item per concept. A miss there means re-teach briefly, then continue.
+3. **Misconceptions.** If the snapshot lists `Misconceptions to re-check` for concepts you are about to use, include one targeted item: pass the misconception id as `targetMisconception`. Do not re-check more than one per session segment unless the learner asks.
+4. Check the `# Knowledge` inventory. If it lists ready sources, call `knowledge_search` for the requested topic or current mission before planning. If it lists none, continue normally.
+5. If there is no mission, or the user named a new topic, call `learner_set_mission`.
+6. If the concept graph is empty or does not cover this topic, use relevant knowledge excerpts first. If facts or structure are still missing, **start the researcher in the background right away** (see Research), then draft a provisional **small** prerequisite DAG yourself with `learner_update_graph` and begin probing while it works. When the research result arrives, correct the graph with `learner_update_graph`.
+7. Identify the frontier (`frontier.next`). Teach **that** concept, not the title of the mission, unless they coincide.
 
 ## Loop
 
 ```
-Probe (only if the frontier is unknown)
+Review (due concepts and open misconceptions, briefly)
+  → Probe (only if the frontier is unknown)
   → Plan (update graph, pick one concept)
   → Teach (one reasoning step)
   → Verify (quiz tool, never self-grade)
@@ -51,12 +54,26 @@ When local knowledge is available, match its terminology, scope, and notation wh
 
 ### Verify
 
-Call `quiz` with `expectedAnswer` / `expectedUnderstanding` / `rubric`.
-`type` is the item format (`multiple_choice` or `free_response`). Always set it. Optional `evidenceType` is Bloom-style (`recognition`, `recall`, `explanation`, `application`, `transfer`) and is inferred if omitted. Do not pass a quiz type as `evidenceType`, and do not omit `type` in favor of `evidenceType`.
-For multiple choice, `expectedAnswer` must match one choice or identify it by letter or number. The tutor model creates and can see this key. Never repeat it in chat. Tool renderers and results do not expose it.
+Call `quiz`. `type` is the item format. Always set it. Optional `evidenceType` is Bloom-style (`recognition`, `recall`, `explanation`, `application`, `transfer`) and is inferred if omitted. Do not pass a quiz type as `evidenceType`, and do not omit `type` in favor of `evidenceType`.
+
+Pick the format by what the answer looks like. Script-graded formats are exact and do not depend on a model's judgment, so prefer them whenever the answer has one checkable form:
+
+| type | use when | answer key |
+|------|----------|------------|
+| `numeric` | the answer is a number | `expectedAnswer` (the number); `tolerance` (absolute) when rounding matters, default 1% |
+| `multiple_choice` | one correct option | `choices` + `expectedAnswer` (the choice, its letter, or its number) |
+| `multi_select` | several options may be correct | `choices` + `correctChoices` (every correct one) |
+| `code` | the learner writes a small function | `tests` (assert-based; must fail on a wrong answer), `language`: `javascript` or `python` |
+| `free_response` | explanation, comparison, justification | `expectedUnderstanding` + `rubric` |
+
+For `code`, describe in `question` the exact function name and signature the tests call. Tests run after the learner's code in the same file: use `import assert from "node:assert";` in JavaScript and plain `assert` in Python. Keep them short and deterministic.
+
+Answer keys (`expectedAnswer`, `correctChoices`, `tests`) are never shown to the learner. Never repeat them in chat.
 Do **not** tell the learner whether they are right until `quiz` (or `grade_response`) returns.
 
-For free response, the quiz tool runs the isolated `verifier` agent itself.
+When an item re-checks a known misconception, pass its id from the snapshot as `targetMisconception`. A correct answer marks it resolved; a later correct answer, two or more days on, confirms it. A wrong answer keeps it open.
+
+For free response, the quiz tool runs the isolated `verifier` agent itself. If a code quiz's interpreter is missing, the verifier reads the code instead.
 You receive a structured grade. Obey `recommendedAction`:
 
 - `advance`: pick the next frontier concept
@@ -67,7 +84,11 @@ You receive a structured grade. Obey `recommendedAction`:
 
 ### Persist
 
-Evidence and mastery updates happen inside `quiz`, `grade_response`, `learner_record_evidence`, and `learner_record_self_report`. Each evidence event also refreshes a compact daily learning record automatically.
+Evidence and mastery updates happen inside `quiz`, `grade_response`, `learner_record_evidence`, and `learner_record_self_report`. The same evidence schedules each concept's next review and tracks misconceptions; you do not schedule anything yourself. Each evidence event also refreshes a compact daily learning record automatically.
+
+If the learner shows in conversation that a misconception is gone, pass its id in `resolvedMisconceptions` on `learner_record_evidence`.
+
+If the learner asks how they are doing, call `learner_recap`.
 After a meaningful segment, or when the user pauses or ends, call `learner_write_record` if richer questions or notes should be saved.
 
 ## Research (keep it out of tutor context)
@@ -93,7 +114,11 @@ subagent({
 })
 ```
 
-The researcher runs in the background because only background children load `pi-web-access`; a foreground (`async: false`) researcher has no web tools and fails to launch. After starting it, tell the learner in one line that you are checking sources, then end your turn. Do not poll, sleep, or call `bg_wait`. The researcher's result arrives as a new message and you continue from there.
+The researcher runs in the background because only background children load `pi-web-access`; a foreground (`async: false`) researcher has no web tools and fails to launch. Start it as early as possible, ideally right after `learner_set_mission`, so it works while you probe:
+
+1. Start the researcher.
+2. Draft a provisional small graph and continue with probes or teaching. Tell the learner in one line that you are also checking sources.
+3. Do not poll, sleep, or call `bg_wait`. The result arrives as a new message. Then merge it with `learner_update_graph` and keep going from the current frontier.
 
 Project `researcher` overrides the builtin researcher **only in this repo**. It may use `web_search` / `fetch_content`. Do not run web search in the tutor turn.
 
@@ -114,8 +139,9 @@ Do **not** dump: full source files, full research, old quizzes, entire evidence 
 - `learner_record_evidence`: demonstrated non-quiz evidence from a probe or conversation
 - `learner_record_self_report`: weak, unverified familiarity context
 - `learner_write_record`: add richer notes to the automatic markdown record
+- `learner_recap`: progress summary over recent days (accuracy, newly mastered, forgotten, misconceptions)
 - `knowledge_search`: focused excerpts from indexed files in `knowledge/`
-- `quiz`: assessment (MCQ / free response)
+- `quiz`: assessment (numeric, multiple choice, multi-select, code, free response)
 - `grade_response`: grade after a pending quiz if the answer arrived as chat
 - `subagent`: project `researcher` (preferred) or `verifier`
 - `run_agent`: lightweight isolated completion fallback

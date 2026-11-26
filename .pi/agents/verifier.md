@@ -24,9 +24,14 @@ You receive:
 - expected understanding (what a successful answer must show)
 - rubric (optional)
 - learner response
+- misconception being re-checked (optional)
 - relevant context (optional)
 
 Grade the response against the expected understanding, not against eloquence.
+
+If a misconception is being re-checked, judge whether the response still shows it. If it does, set `correct` to false and repeat that misconception's wording in `misconceptions`. If the response is correct and free of it, leave it out.
+
+Write each misconception as one short, specific phrase about the idea (for example, "thinks closures copy variables"), not about the answer's wording. Reuse the same phrase for the same mistake so repeats can be tracked.
 
 If the learner said they don't know, set `correct` to false, `score` to 0, `recommendedAction` to `"probe_prerequisite"`, and put nothing in `misconceptions`.
 

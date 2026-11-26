@@ -12,6 +12,7 @@ import { compactKnowledgeText, syncKnowledge } from "../../lib/knowledge.ts";
 import { EVIDENCE_TYPES } from "../../lib/types.ts";
 import { writeMission } from "../../lib/mission.ts";
 import { projectPaths } from "../../lib/paths.ts";
+import { writeRecap } from "../../lib/recap.ts";
 import { tryWriteAutomaticLearningRecord, writeLearningRecord } from "../../lib/records.ts";
 import { compactSnapshotText, loadSnapshot } from "../../lib/snapshot.ts";
 import { refreshTeachWidget } from "../../lib/widget.ts";
@@ -130,6 +131,11 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 			correct: Type.Optional(Type.Boolean()),
 			notes: Type.Optional(Type.String()),
 			misconceptions: Type.Optional(Type.Array(Type.String())),
+			resolvedMisconceptions: Type.Optional(
+				Type.Array(Type.String(), {
+					description: "Misconception ids (e.g. m-3fa21c) or texts this evidence shows are now corrected.",
+				}),
+			),
 			source: Type.Optional(Type.Union([Type.Literal("conversation"), Type.Literal("probe")])),
 		}),
 		async execute(_id, params, _signal, _onUpdate, ctx) {
@@ -141,6 +147,7 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 				correct: params.correct ?? params.score >= 0.7,
 				source: params.source ?? "conversation",
 				misconceptions: params.misconceptions,
+				resolvedMisconceptions: params.resolvedMisconceptions,
 				notes: params.notes,
 			});
 			saveConcepts(paths, store);
@@ -205,6 +212,25 @@ export default function learningStateExtension(pi: ExtensionAPI) {
 				0,
 				0,
 			);
+		},
+	});
+
+	pi.registerTool({
+		name: "learner_recap",
+		label: "Recap",
+		description:
+			"Summarize the learner's recent progress from saved evidence: accuracy, newly mastered concepts, forgotten concepts, misconceptions found and resolved, and what is due. Use when the learner asks how they are doing.",
+		parameters: Type.Object({
+			days: Type.Optional(Type.Number({ description: "Window in days, 1 to 365. Default 7." })),
+		}),
+		async execute(_id, params, _signal, _onUpdate, ctx) {
+			const days = Math.min(365, Math.max(1, Math.floor(params.days ?? 7)));
+			const { file, markdown, stats } = writeRecap(projectPaths(ctx.cwd), days);
+			return toolText(`${markdown}
+Saved: ${file}`, { file, items: stats.items, accuracy: stats.accuracy });
+		},
+		renderCall(args, theme) {
+			return new Text(theme.fg("toolTitle", theme.bold("recap ")) + theme.fg("muted", `${args.days ?? 7}d`), 0, 0);
 		},
 	});
 

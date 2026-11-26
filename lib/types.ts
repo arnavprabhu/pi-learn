@@ -55,8 +55,44 @@ export interface Concept {
 	status: ConceptStatus;
 	lastReviewed: string | null;
 	evidenceCount: number;
+	/** Open misconception texts. Resolved ones are tracked in lib/misconceptions.ts. */
 	misconceptions: string[];
 	evidence: EvidenceCounts;
+	/** Spaced-review schedule derived from graded evidence. Missing on caches written before v2. */
+	review?: ReviewState;
+}
+
+export interface ReviewState {
+	/** Days until predicted recall drops to 90%. 0 means never successfully recalled. */
+	stability: number;
+	/** Timestamp of the last evidence that changed the schedule. */
+	lastReview: string | null;
+	due: string | null;
+	reps: number;
+	lapses: number;
+}
+
+export interface DueReview {
+	id: string;
+	name: string;
+	due: string;
+	overdueDays: number;
+	retrievability: number;
+}
+
+export type MisconceptionStatus = "open" | "resolved" | "confirmed";
+
+export interface MisconceptionRecord {
+	/** Stable id derived from concept and normalized text, e.g. m-3fa21c. */
+	id: string;
+	concept: string;
+	text: string;
+	status: MisconceptionStatus;
+	count: number;
+	firstSeen: string;
+	lastSeen: string;
+	resolvedAt?: string;
+	confirmedAt?: string;
 }
 
 export interface EvidenceCounts {
@@ -81,6 +117,8 @@ export interface EvidenceEvent {
 	correct: boolean | null;
 	source: "quiz" | "probe" | "conversation" | "self_report";
 	misconceptions?: string[];
+	/** Misconception ids (or texts) this evidence showed are corrected. */
+	resolvedMisconceptions?: string[];
 	notes?: string;
 }
 
@@ -126,6 +164,8 @@ export interface LearnerSnapshot {
 	concepts: Concept[];
 	recentEvidence: EvidenceEvent[];
 	pendingQuiz: PendingQuiz | null;
+	dueReviews: DueReview[];
+	misconceptions: MisconceptionRecord[];
 }
 
 export interface PendingQuiz {
@@ -139,8 +179,24 @@ export interface PendingQuiz {
 	rubric?: string;
 	difficulty?: number;
 	evidenceType: EvidenceType;
+	/** numeric: accepted absolute error. */
+	tolerance?: number;
+	/** multi_select: every correct choice (text, letter, or one-based number). */
+	correctChoices?: string[];
+	/** code: language the learner writes and the tests run in. */
+	language?: CodeLanguage;
+	/** code: test code appended after the learner's code. Must fail (throw / non-zero exit) on a wrong answer. */
+	tests?: string;
+	/** Misconception id or text this item re-checks. */
+	targetMisconception?: string;
 	createdAt: string;
 }
+
+export const CODE_LANGUAGES = ["javascript", "python"] as const;
+export type CodeLanguage = (typeof CODE_LANGUAGES)[number];
+
+/** Quiz formats with dedicated collection and grading. Others are graded as free response. */
+export const IMPLEMENTED_QUIZ_TYPES = ["multiple_choice", "free_response", "numeric", "multi_select", "code"] as const;
 
 export function emptyEvidenceCounts(): EvidenceCounts {
 	return {
@@ -172,5 +228,10 @@ export function defaultConcept(partial: {
 		evidenceCount: 0,
 		misconceptions: [],
 		evidence: emptyEvidenceCounts(),
+		review: emptyReview(),
 	};
+}
+
+export function emptyReview(): ReviewState {
+	return { stability: 0, lastReview: null, due: null, reps: 0, lapses: 0 };
 }

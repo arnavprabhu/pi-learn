@@ -30,6 +30,7 @@ export function appendEvidence(paths: ProjectPaths, event: Omit<EvidenceEvent, "
 		correct: event.correct,
 		source: event.source,
 		misconceptions: event.misconceptions,
+		resolvedMisconceptions: event.resolvedMisconceptions,
 		notes: event.notes,
 	};
 	appendLine(paths.evidence, JSON.stringify(full));
@@ -90,6 +91,7 @@ export function recordAndUpdate(
 		source: EvidenceEvent["source"];
 		quizType?: EvidenceEvent["quizType"];
 		misconceptions?: string[];
+		resolvedMisconceptions?: string[];
 		notes?: string;
 		strength?: number;
 	},

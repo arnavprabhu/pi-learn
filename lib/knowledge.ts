@@ -169,41 +169,124 @@ export async function syncKnowledge(paths: ProjectPaths): Promise<KnowledgeIndex
 	return index;
 }
 
+const BM25_K1 = 1.2;
+const BM25_B = 0.75;
+const STOPWORDS = new Set(
+	"a an and are as at be but by for from has have how i if in into is it its of on or so that the their then there these this to was what when where which while who why will with you your".split(" "),
+);
+
+interface IndexedChunk {
+	path: string;
+	page?: number;
+	excerpt: string;
+	lower: string;
+	terms: Map<string, number>;
+	length: number;
+	pathTerms: Set<string>;
+}
+
+/** Chunked, tokenized documents, cached per content hash for the life of the process. */
+const chunkCache = new Map<string, IndexedChunk[]>();
+
+/** Lowercase word tokens with light plural folding, so "rectangles" matches "rectangle". */
+export function tokenize(text: string): string[] {
+	const out: string[] = [];
+	for (const raw of text.toLowerCase().match(/[\p{L}\p{N}]+(?:[+#]{1,2})?/gu) ?? []) {
+		if (raw.length < 2 && !/\d/.test(raw)) continue;
+		if (STOPWORDS.has(raw)) continue;
+		out.push(stem(raw));
+	}
+	return out;
+}
+
+function stem(word: string): string {
+	if (word.length > 4 && word.endsWith("ies")) return `${word.slice(0, -3)}y`;
+	if (word.length > 4 && /(ches|shes|sses|xes|zes)$/.test(word)) return word.slice(0, -2);
+	if (word.length > 3 && word.endsWith("s") && !/(ss|us|is)$/.test(word)) return word.slice(0, -1);
+	return word;
+}
+
+function indexDocument(paths: ProjectPaths, document: KnowledgeDocument): IndexedChunk[] {
+	if (!document.hash) return [];
+	const cached = chunkCache.get(document.hash);
+	if (cached && cached[0]?.path === document.path) return cached;
+	const cache = readJson<CachedKnowledge>(knowledgeCacheFile(paths, document.hash));
+	if (!cache || cache.hash !== document.hash) return [];
+	const pathTerms = new Set(tokenize(document.path.replace(/[/_.-]+/g, " ")));
+	const chunks: IndexedChunk[] = [];
+	for (let pageIndex = 0; pageIndex < cache.pages.length; pageIndex++) {
+		for (const excerpt of chunkText(cache.pages[pageIndex])) {
+			const tokens = tokenize(excerpt);
+			const terms = new Map<string, number>();
+			for (const token of tokens) terms.set(token, (terms.get(token) ?? 0) + 1);
+			chunks.push({
+				path: document.path,
+				page: document.kind === "pdf" ? pageIndex + 1 : undefined,
+				excerpt,
+				lower: excerpt.toLowerCase().replace(/\s+/g, " "),
+				terms,
+				length: tokens.length,
+				pathTerms,
+			});
+		}
+	}
+	chunkCache.set(document.hash, chunks);
+	return chunks;
+}
+
+/**
+ * Rank passages with Okapi BM25 (k1=1.2, b=0.75) over all chunks of ready
+ * sources, plus a bonus when the whole query appears as a phrase and a small
+ * bonus for query terms in the file path.
+ */
 export function searchKnowledge(
 	paths: ProjectPaths,
 	index: KnowledgeIndex,
 	query: string,
 	limit = 5,
 ): KnowledgeMatch[] {
-	const normalizedQuery = query.trim().toLowerCase();
-	const terms = Array.from(new Set(normalizedQuery.match(/[\p{L}\p{N}+#.]{2,}/gu) ?? []));
+	const max = Math.max(1, Math.min(limit, 8));
+	const chunks = index.documents
+		.filter((document) => document.status === "ready")
+		.flatMap((document) => indexDocument(paths, document));
+	if (chunks.length === 0) return [];
+
+	const queryTerms = Array.from(new Set(tokenize(query)));
+	if (queryTerms.length === 0) {
+		return chunks.slice(0, max).map((chunk) => ({ path: chunk.path, page: chunk.page, score: 0, excerpt: chunk.excerpt }));
+	}
+
+	const total = chunks.length;
+	const avgLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0) / total || 1;
+	const idf = new Map<string, number>();
+	for (const term of queryTerms) {
+		const df = chunks.reduce((n, chunk) => n + (chunk.terms.has(term) ? 1 : 0), 0);
+		idf.set(term, Math.log(1 + (total - df + 0.5) / (df + 0.5)));
+	}
+	const phrase = query.trim().toLowerCase().replace(/\s+/g, " ");
+	const idfSum = [...idf.values()].reduce((a, b) => a + b, 0);
+
 	const matches: KnowledgeMatch[] = [];
-
-	for (const document of index.documents) {
-		if (document.status !== "ready" || !document.hash) continue;
-		const cache = readJson<CachedKnowledge>(knowledgeCacheFile(paths, document.hash));
-		if (!cache || cache.hash !== document.hash) continue;
-
-		for (let pageIndex = 0; pageIndex < cache.pages.length; pageIndex++) {
-			for (const excerpt of chunkText(cache.pages[pageIndex])) {
-				const haystack = `${document.path}\n${excerpt}`.toLowerCase();
-				let score = normalizedQuery ? 0 : 1;
-				if (normalizedQuery && haystack.includes(normalizedQuery)) score += 8;
-				for (const term of terms) score += countOccurrences(haystack, term);
-				if (score === 0) continue;
-				matches.push({
-					path: document.path,
-					page: document.kind === "pdf" ? pageIndex + 1 : undefined,
-					score,
-					excerpt,
-				});
+	for (const chunk of chunks) {
+		let score = 0;
+		let matched = 0;
+		for (const term of queryTerms) {
+			const tf = chunk.terms.get(term) ?? 0;
+			if (tf > 0) {
+				matched += 1;
+				const norm = tf + BM25_K1 * (1 - BM25_B + BM25_B * (chunk.length / avgLength));
+				score += idf.get(term)! * ((tf * (BM25_K1 + 1)) / norm);
 			}
+			if (chunk.pathTerms.has(term)) score += 0.25 * idf.get(term)!;
 		}
+		if (matched === 0) continue;
+		if (queryTerms.length > 1 && phrase.length > 3 && chunk.lower.includes(phrase)) score += 0.5 * idfSum;
+		matches.push({ path: chunk.path, page: chunk.page, score, excerpt: chunk.excerpt });
 	}
 
 	return matches
 		.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path) || (a.page ?? 0) - (b.page ?? 0))
-		.slice(0, Math.max(1, Math.min(limit, 8)));
+		.slice(0, max);
 }
 
 export function compactKnowledgeText(index: KnowledgeIndex): string {
@@ -289,12 +372,3 @@ function chunkText(text: string): string[] {
 	return chunks.filter(Boolean);
 }
 
-function countOccurrences(text: string, term: string): number {
-	let count = 0;
-	let offset = 0;
-	while ((offset = text.indexOf(term, offset)) !== -1) {
-		count += 1;
-		offset += term.length;
-	}
-	return count;
-}

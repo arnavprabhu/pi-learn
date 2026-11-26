@@ -41,33 +41,57 @@ pi-learn works with every model provider Pi supports. Sign in through Pi, or run
 ```text
 /teach Riemann sums
 /frontier
+/map
+/recap
 ```
 
 `/teach` with no topic resumes the current mission. You can also ask in plain language: `Teach me how Riemann sums approximate area.`
 
-`/frontier` prints the next concept from saved files, not from chat. When a mission is active, the footer shows the goal and the next concept id.
+`/frontier` prints the next concept from saved files, not from chat. When a mission is active, the footer shows the goal, the next concept id, and how many reviews are due.
+
+`/map` opens the concept map: every concept in prerequisite order with its mastery bar, the next concept (▶), reviews due (↻), and open misconceptions (!). Move with the arrow keys to see a concept's details.
+
+`/recap [days]` summarizes the last 7 days, or the number you give: accuracy, newly mastered concepts, forgotten ones, misconceptions found and resolved, and what's due next. It is computed from the evidence log, with no model call, and saved to `learning-records/recap-YYYY-MM-DD.md`. You can also ask the tutor how you are doing.
 
 If `/teach` asks you to wait, let the current turn finish first.
 
 ### Quizzes
 
-Checks appear as a quiz overlay, not as “does that make sense?” Multiple choice is a list; free response is a short editor. **I don't know** is always an option and is better than guessing. The answer key is never shown in the UI.
+Checks appear as a quiz overlay, not as “does that make sense?” **I don't know** is always an option and is better than guessing. The answer key is never shown in the UI.
+
+| Format | You answer with | Graded by |
+|--------|-----------------|-----------|
+| Multiple choice | a list | script |
+| Multi-select | a checklist (space toggles, enter submits) | script, with partial credit |
+| Numeric | a number (`1/3`, `6.02e23`, `25%`, and units are fine) | script, within a tolerance |
+| Code | a short JavaScript or Python function | your code is run against hidden tests (10 s limit) |
+| Free response | a short editor | an isolated verifier model |
+
+The tutor prefers script-graded formats when an answer has one checkable form, because they don't depend on a model's judgment. Code answers run on your machine with your permissions, like any code you run yourself. Python needs `python3`, or set `PI_TEACH_PYTHON`.
+
+### Reviews and misconceptions
+
+Mastered concepts come back for review on a spaced schedule: about a day after you first get one right, then at growing intervals each time you recall it after a gap. Forgetting shortens the interval. Each session starts with up to three due reviews before new material.
+
+Misconceptions the grader finds are tracked one by one. The tutor later writes an item aimed at each one. Getting it right marks it resolved, and getting it right again at least two days later confirms it. If it shows up again, it reopens.
 
 ### Your sources
 
 Put readings, notes, code, or textbooks in `knowledge/`, then `/teach` again. Pi indexes changed files, searches relevant passages, and keeps a local cache. An empty folder is fine.
 
-PDF, Markdown, text, HTML, JSON, CSV, and common source-code files are supported. PDF extraction is local and does not use OCR. `knowledge/README.md` is a guide for you and is not indexed as a source.
+PDF, Markdown, text, HTML, JSON, CSV, and common source-code files are supported. PDF extraction is local and does not use OCR. Passages are ranked with BM25, which favors rare, specific terms over words that appear everywhere. `knowledge/README.md` is a guide for you and is not indexed as a source.
 
 Files in `knowledge/` are tracked by Git by default. Uncomment the knowledge rules in `.gitignore` if the material should stay local.
 
 ## How it works
 
 ```text
-Probe → Plan → Teach → Verify → Persist
+Review → Probe → Plan → Teach → Verify → Persist
 ```
 
-The tutor finds the nearest unmastered concept (the frontier), teaches that one step, then quizzes. “I get it” is not treated as evidence. A later session reads the same files and continues there.
+The tutor first reviews anything due, then finds the nearest unmastered concept (the frontier), teaches that one step, and quizzes. “I get it” is not treated as evidence. A later session reads the same files and continues there.
+
+When your sources don't cover a new topic, the researcher starts in the background as soon as the mission is set. The tutor drafts a provisional concept graph and starts probing meanwhile, then folds the research in when it arrives.
 
 ## Where progress lives
 
@@ -75,8 +99,8 @@ The tutor finds the nearest unmastered concept (the frontier), teaches that one 
 |------|------|
 | `MISSION.md` | Current goal and depth cap |
 | `learner/evidence.jsonl` | Canonical evidence log |
-| `learner/concepts.json` | Derived mastery cache |
-| `learning-records/` | Compact daily notes |
+| `learner/concepts.json` | Derived cache: mastery, review schedule, open misconceptions |
+| `learning-records/` | Compact daily notes and `/recap` summaries |
 | `knowledge/` | Your source material |
 | `.pi/knowledge-cache/` | Generated local index |
 

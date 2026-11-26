@@ -4,8 +4,10 @@ This project is a **project-local** tutoring harness. Skills, extensions, and le
 
 - Start or resume: `/teach [topic]`
 - Inspect frontier: `/frontier` (file-backed, not chat)
+- Concept map: `/map` · progress summary: `/recap [days]`
 - Reset (never automatic): `/teach-reset topic <id>` · `mission` · `all`
 - State: `learner/concepts.json`, `learner/evidence.jsonl`, `MISSION.md`, `learning-records/`
+- Review schedule and misconceptions are derived from `learner/evidence.jsonl` (`lib/review.ts`, `lib/misconceptions.ts`); never edit them by hand
 - Sources: `knowledge/` (indexed on `/teach`; `knowledge/README.md` is not a source)
 - Cache: `.pi/knowledge-cache/`
 

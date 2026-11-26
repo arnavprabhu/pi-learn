@@ -30,8 +30,10 @@
  *   unknown  otherwise
  */
 
+import { matchMisconception, misconceptionId } from "./misconceptions.ts";
+import { scheduleReview } from "./review.ts";
 import type { Concept, ConceptStatus, EvidenceEvent, EvidenceType } from "./types.ts";
-import { emptyEvidenceCounts } from "./types.ts";
+import { emptyEvidenceCounts, emptyReview } from "./types.ts";
 
 export const EVIDENCE_STRENGTH: Record<EvidenceType, number> = {
 	recognition: 0.25,
@@ -72,7 +74,11 @@ export function applyEvidence(concept: Concept, event: EvidenceEvent): Concept {
 	if (event.correct === false) evidence.incorrect += 1;
 	evidence[event.type] += 1;
 
-	const misconceptions = mergeMisconceptions(concept.misconceptions, event.misconceptions);
+	const misconceptions = removeResolved(
+		concept.id,
+		mergeMisconceptions(concept.misconceptions, event.misconceptions),
+		event.resolvedMisconceptions,
+	);
 
 	const next: Concept = {
 		...concept,
@@ -82,6 +88,7 @@ export function applyEvidence(concept: Concept, event: EvidenceEvent): Concept {
 		lastReviewed: event.ts,
 		evidence,
 		misconceptions,
+		review: scheduleReview(concept.review, event),
 		status: concept.status === "blocked" ? "blocked" : "learning",
 	};
 	return next;
@@ -95,6 +102,7 @@ export function recomputeConcept(base: Concept, events: EvidenceEvent[]): Concep
 		evidenceCount: 0,
 		evidence: emptyEvidenceCounts(),
 		misconceptions: [],
+		review: emptyReview(),
 		lastReviewed: null,
 		status: "unknown",
 	};
@@ -149,4 +157,23 @@ function mergeMisconceptions(existing: string[], incoming?: string[]): string[] 
 		out.push(item.trim());
 	}
 	return out.slice(-12);
+}
+
+function removeResolved(conceptId: string, open: string[], resolved?: string[]): string[] {
+	if (!resolved || resolved.length === 0) return open;
+	const records = open.map((text) => ({
+		id: misconceptionId(conceptId, text),
+		concept: conceptId,
+		text,
+		status: "open" as const,
+		count: 1,
+		firstSeen: "",
+		lastSeen: "",
+	}));
+	const drop = new Set<string>();
+	for (const ref of resolved) {
+		const match = matchMisconception(records, conceptId, ref);
+		if (match) drop.add(match.text);
+	}
+	return open.filter((text) => !drop.has(text));
 }

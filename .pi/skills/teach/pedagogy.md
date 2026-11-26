@@ -58,6 +58,18 @@ Remove logistics: resource-hunting, prerequisite order, what-next, progress trac
 
 Do **not** remove the struggle of the idea itself. Do not over-hint. Let the learner work.
 
+## Space retrieval over time
+
+Recall that is tested again after a delay lasts far longer than recall right after teaching. Start sessions with the concepts the snapshot lists as due, using recall or application items. Keep reviews short: one item each, at most three, then move to new material. A missed review is information, not failure. Re-teach briefly and the schedule shortens on its own.
+
+## Revisit misconceptions deliberately
+
+A misconception that was corrected once often comes back. When the snapshot lists one, write an item that someone holding it would get wrong, and pass its id as `targetMisconception`. Do not announce which misconception you are testing.
+
+## Prefer checkable answers
+
+When a concept has a numeric answer, a set of correct options, or a small function to write, use the matching script-graded format. Save free response for explanations, where wording carries the understanding.
+
 ## Mission bounds
 
 The mission is a depth cap. Do not recursively teach all of mathematics (or CS, or physics) because a prerequisite chain exists in the abstract. Stop expanding the DAG once further nodes are not required for the stated goal.
