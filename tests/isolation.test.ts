@@ -12,7 +12,13 @@ const repoRoot = path.resolve(import.meta.dirname, "..");
 
 async function loadPiSkills() {
 	const cli = fs.realpathSync(execFileSync("which", ["pi"], { encoding: "utf8" }).trim());
-	const pkgRoot = path.dirname(path.dirname(cli));
+	// The CLI file's depth inside the package varies by Pi version, so find the package root.
+	let pkgRoot = path.dirname(cli);
+	while (!fs.existsSync(path.join(pkgRoot, "package.json"))) {
+		const parent = path.dirname(pkgRoot);
+		if (parent === pkgRoot) throw new Error(`Pi package root not found above ${cli}`);
+		pkgRoot = parent;
+	}
 	const mod = await import(pathToFileURL(path.join(pkgRoot, "dist/index.js")).href);
 	return mod as {
 		loadSkills: (opts: {

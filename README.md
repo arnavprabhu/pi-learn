@@ -8,17 +8,17 @@ Chat history is not the learner model. Progress lives in files in this repositor
 
 ## Prerequisites
 
-- Node.js 22 or newer
-- Pi 0.84 or newer (`@earendil-works/pi-coding-agent`)
-- `pi-subagents` 0.50 or newer
-- `pi-web-access` 0.23 or newer
+- Node.js 22.19 or newer
+- Pi 1.6 or newer (`@earendil-works/pi-coding-agent`)
+- `pi-subagents` 0.90 or newer
+- `pi-web-access` 0.48 or newer
 
 ## Setup
 
 Install Pi and the extensions, then start Pi from this repository:
 
 ```bash
-npm install -g @earendil-works/pi-coding-agent
+curl -fsSL https://pi.dev/install.sh | sh
 pi install npm:pi-subagents
 pi install npm:pi-web-access
 
@@ -27,6 +27,8 @@ cd pi-learn
 npm install
 pi --approve
 ```
+
+The installer pins Pi's dependencies, and `pi update` keeps it current. To install from npm instead, run `npm install -g --ignore-scripts @earendil-works/pi-coding-agent`. Update the extensions with `pi update --extensions`.
 
 `--approve` trusts this project so Pi can load its local skills, extensions, agents, and settings. Pi may prompt for this approval interactively instead.
 
@@ -100,7 +102,7 @@ npm run reset -- --all --yes
 
 ## Isolation
 
-Skills, extensions, agents, sessions, and learner state live in this repository. The project does not install anything into `~/.pi/` or use global Pi sessions. Pi itself may update its trust file if you approve the project. The researcher uses `pi-subagents` and `pi-web-access`; the tutor does not browse directly.
+Skills, extensions, agents, sessions, and learner state live in this repository. The project does not install anything into `~/.pi/` or use global Pi sessions. Pi itself may update its trust file if you approve the project. The researcher uses `pi-subagents` and `pi-web-access`; the tutor does not browse directly. The researcher runs as a background subagent because only background subagents load `pi-web-access`. The tutor picks up its findings when it finishes.
 
 ## Tests
 

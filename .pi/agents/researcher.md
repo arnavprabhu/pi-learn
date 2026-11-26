@@ -6,9 +6,8 @@ thinking: medium
 systemPromptMode: replace
 inheritProjectContext: false
 inheritSkills: false
-completionGuard: false
 acceptanceRole: read-only
-async: false
+async: true
 output: .pi/scratch/research.md
 defaultProgress: false
 maxSubagentDepth: 0

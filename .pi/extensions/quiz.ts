@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { loadAgent } from "../../lib/agents.ts";
@@ -70,7 +70,7 @@ function publicGrade(grade: GradeResult, extra: Record<string, unknown> = {}) {
 	};
 }
 
-function renderQuizCall(args: Record<string, unknown>, theme: { fg: (c: string, t: string) => string; bold: (t: string) => string }) {
+function renderQuizCall(args: Record<string, unknown>, theme: Theme) {
 	const concept = String(args.concept ?? "");
 	const type = String(args.type ?? "");
 	const question = String(args.question ?? "");

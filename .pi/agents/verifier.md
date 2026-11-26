@@ -6,7 +6,6 @@ thinking: low
 systemPromptMode: replace
 inheritProjectContext: false
 inheritSkills: false
-completionGuard: false
 acceptanceRole: read-only
 async: false
 defaultProgress: false

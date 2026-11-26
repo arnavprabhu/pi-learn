@@ -1,3 +1,4 @@
 {
+  "$schema": "https://pi.dev/schemas/settings.schema.json",
   "sessionDir": ".pi/sessions"
 }

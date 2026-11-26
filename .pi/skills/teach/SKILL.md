@@ -76,19 +76,24 @@ This machine already has **pi-subagents** and **pi-web-access** globally.
 
 Search `knowledge/` before using web research. Use the researcher only when local sources do not cover what the mission needs or require fact-checking.
 
-Prefer the existing `subagent` tool with the **project** agents in `.pi/agents/`:
+Prefer the existing `subagent` tool with the **project** agents in `.pi/agents/`. If your tool list has `subagents_enable` but not `subagent`, call `subagents_enable({})` first; `subagent` appears on your next request.
 
 ```
 subagent({
   agent: "researcher",
+  label: "Research prerequisites",
   task: "<what you need: fact check, terminology, or a small prerequisite DAG>",
-  agentScope: "project",
-  context: "fresh",
-  async: false,
-  mission: false,
-  sessionDir: ".pi/subagent-sessions"
+  async: true,
+  options: {
+    agentScope: "project",
+    context: "fresh",
+    mission: false,
+    sessionDir: ".pi/subagent-sessions"
+  }
 })
 ```
+
+The researcher runs in the background because only background children load `pi-web-access`; a foreground (`async: false`) researcher has no web tools and fails to launch. After starting it, tell the learner in one line that you are checking sources, then end your turn. Do not poll, sleep, or call `bg_wait`. The researcher's result arrives as a new message and you continue from there.
 
 Project `researcher` overrides the builtin researcher **only in this repo**. It may use `web_search` / `fetch_content`. Do not run web search in the tutor turn.
 
